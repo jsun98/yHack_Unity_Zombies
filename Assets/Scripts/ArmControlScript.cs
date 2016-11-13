@@ -9,6 +9,7 @@ public class ArmControlScript : MonoBehaviour {
     int newCount = 0;
 
     float yaw, pitch, roll;
+    float dYaw, dPitch, dRoll;
     float x, y, z; // accelerations
     double time;
     string[] lastRead;
@@ -16,15 +17,16 @@ public class ArmControlScript : MonoBehaviour {
 	void Start () {
         x = y = z = 0f;
         yaw = pitch = roll = 0f;
+        dYaw = dPitch = dRoll = 0f;
         time = 0;
-        stream = new SerialPort("COM3", 9600, Parity.None, 8, StopBits.One);
+        stream = new SerialPort(SerialPort.GetPortNames()[0], 9600, Parity.None, 8, StopBits.One);
         stream.ReadTimeout = 50;
         stream.Handshake = Handshake.None;
         stream.DtrEnable = true;
         stream.RtsEnable = true;
         stream.Open();
     }
-
+    float maxRoll = 0f;
     void process(string str)
     {
         string[] data = str.Split(' '); // split by space
@@ -35,34 +37,42 @@ public class ArmControlScript : MonoBehaviour {
         }
         newCount++;
         // setup values of angles
-        double dt = (Convert.ToInt32(data[9]) - Convert.ToInt32(lastRead[9])) * (3.9E-5);
+        double dt = (Convert.ToInt32(data[9]) - Convert.ToInt32(lastRead[9])) * (0.000039);
+        //Debug.Log(transform.rotation);
         time += dt;
-        roll += (float)(Convert.ToSingle(data[3]) * dt);
-        pitch += (float)(Convert.ToSingle(data[4]) * dt);
-        yaw += (float)(Convert.ToSingle(data[5]) * dt);
+        dRoll = (float)(Convert.ToSingle(data[3]) * dt);
+        if (Math.Abs(dRoll) > Math.Abs(maxRoll)) maxRoll = dRoll;
+        Debug.Log(maxRoll);
+        dPitch = (float)(Convert.ToSingle(data[4]) * dt);
+        dYaw = (float)(Convert.ToSingle(data[5]) * dt);
+        roll += dRoll;
+        pitch += dPitch;
+        yaw += dYaw;
 
         // get x, y, z values
         double ax = Convert.ToDouble(data[6]);
-        double ay = Convert.ToDouble(data[7]);
+        double ay = -Convert.ToDouble(data[7]);
         double az = Convert.ToDouble(data[8]);
         x = Convert.ToSingle(data[6]);
         y = Convert.ToSingle(data[7]);
         z = Convert.ToSingle(data[8]);
-        
-        if (Math.Sqrt(x*x+y*y+z*z)-1 < 0.3)
+        /*
+        if (Math.Sqrt(ax*ax+ay*ay+az*az)-1 < 0.3)
         {
             float pitchAcc = (float) (Math.Atan2(ax, az) * 180 / Math.PI);
             pitchAcc = (pitchAcc >= 0 ? pitchAcc : pitchAcc+360);
-            pitch = pitch * 0.998f + -pitchAcc * 0.002f;
+            pitch = pitch * 0.998f -pitchAcc * 0.002f;
 
             // Turning around the Y axis results in a vector on the X-axis
             float rollAcc = (float) (Math.Atan2(ay, az) * 180 / Math.PI);
             rollAcc = (rollAcc >= 0 ? rollAcc : rollAcc + 360);
-            roll = roll * 0.998f + -rollAcc * 0.002f;
+            roll = roll * 0.998f -rollAcc * 0.002f;
         }
-        transform.Rotate(0, -yaw, 0);
-        transform.Rotate(-pitch, 0, 0);
-        transform.Rotate(0, 0, roll);
+        */
+        Debug.Log("roll: " + roll + ", pitch: " + pitch + ", yaw: " + yaw);
+
+        transform.Rotate(-dPitch, -dYaw, dRoll, Space.World);
+        lastRead = data;
 
         GetComponent<Rigidbody>().AddForce(x, y, z);
     }
@@ -76,10 +86,15 @@ public class ArmControlScript : MonoBehaviour {
         (
             AsynchronousRead
             ((string s) => process(s),     // Callback
-                () => Debug.LogError("Read nothing"), // Error callback
+                () => DoNothing(), // Error callback
                 10f                             // Timeout (seconds)
             )
         );
+    }
+
+    void DoNothing()
+    {
+        return;
     }
 
     void OnDestroy()
@@ -106,7 +121,7 @@ public class ArmControlScript : MonoBehaviour {
                     stream.Open();
                 }
                 dataString = stream.ReadTo("\r\n");
-                Debug.Log(dataString);
+                //Debug.Log(dataString);
             }
             catch (TimeoutException)
             {
