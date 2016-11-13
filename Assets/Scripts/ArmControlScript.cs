@@ -18,9 +18,6 @@ public class ArmControlScript : MonoBehaviour {
         x = y = z = 0f;
         yaw = pitch = roll = 0f;
         dYaw = dPitch = dRoll = 0f;
-        pitch += transform.parent.gameObject.transform.eulerAngles.x;
-        yaw += transform.parent.gameObject.transform.eulerAngles.y;
-        roll += transform.parent.gameObject.transform.eulerAngles.z;
         time = 0;
         stream = new SerialPort(SerialPort.GetPortNames()[0], 9600, Parity.None, 8, StopBits.One);
         stream.ReadTimeout = 50;
@@ -53,13 +50,13 @@ public class ArmControlScript : MonoBehaviour {
         // get x, y, z values
         
         double ax = Convert.ToDouble(data[6]);
-        double ay = -Convert.ToDouble(data[7]);
+        double ay = Convert.ToDouble(data[7]);
         double az = Convert.ToDouble(data[8]);
         
         x = Convert.ToSingle(data[6]);
         y = Convert.ToSingle(data[7]);
         z = Convert.ToSingle(data[8]);
-        /*
+        
         if (Math.Sqrt(ax*ax+ay*ay+az*az)-1 < 0.3)
         {
             float pitchAcc = (float) (Math.Atan2(ax, az) * 180 / Math.PI);
@@ -71,16 +68,16 @@ public class ArmControlScript : MonoBehaviour {
             rollAcc = (rollAcc >= 0 ? rollAcc : rollAcc + 360);
             roll = roll * 0.998f - rollAcc * 0.002f;
         }
-        */
+
         pitch %= 360;
         yaw %= 360;
         roll %= 360;
         Debug.Log("roll: " + roll + ", pitch: " + pitch + ", yaw: " + yaw);
-        transform.eulerAngles = new Vector3(pitch, yaw, roll);// new Vector3(pitch, yaw, roll);
+        transform.eulerAngles = new Vector3(pitch, yaw, roll)+ transform.parent.gameObject.transform.eulerAngles;// new Vector3(pitch, yaw, roll);
         //transform.Rotate(-dPitch, -dYaw, dRoll, Space.World);
         lastRead = data;
 
-        //GetComponent<Rigidbody>().AddForce(x, y, z);
+        GetComponent<Rigidbody>().AddForce(x, y, z);
     }
 
     // Update is called once per frame
