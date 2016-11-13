@@ -18,6 +18,9 @@ public class ArmControlScript : MonoBehaviour {
         x = y = z = 0f;
         yaw = pitch = roll = 0f;
         dYaw = dPitch = dRoll = 0f;
+        pitch += transform.parent.gameObject.transform.eulerAngles.x;
+        yaw += transform.parent.gameObject.transform.eulerAngles.y;
+        roll += transform.parent.gameObject.transform.eulerAngles.z;
         time = 0;
         stream = new SerialPort(SerialPort.GetPortNames()[0], 9600, Parity.None, 8, StopBits.One);
         stream.ReadTimeout = 50;
@@ -40,19 +43,19 @@ public class ArmControlScript : MonoBehaviour {
         double dt = (Convert.ToInt32(data[9]) - Convert.ToInt32(lastRead[9])) * (0.000039);
         //Debug.Log(transform.rotation);
         time += dt;
-        dRoll = (float)(Convert.ToSingle(data[3]) * dt);
-        if (Math.Abs(dRoll) > Math.Abs(maxRoll)) maxRoll = dRoll;
-        Debug.Log(maxRoll);
-        dPitch = (float)(Convert.ToSingle(data[4]) * dt);
-        dYaw = (float)(Convert.ToSingle(data[5]) * dt);
+        dRoll = (float)(Convert.ToSingle(data[3]) * dt) % 360;
+        dPitch = (float)(Convert.ToSingle(data[4]) * dt) % 360;
+        dYaw = (float)(Convert.ToSingle(data[5]) * dt) % 360;
         roll += dRoll;
         pitch += dPitch;
         yaw += dYaw;
 
         // get x, y, z values
+        
         double ax = Convert.ToDouble(data[6]);
         double ay = -Convert.ToDouble(data[7]);
         double az = Convert.ToDouble(data[8]);
+        
         x = Convert.ToSingle(data[6]);
         y = Convert.ToSingle(data[7]);
         z = Convert.ToSingle(data[8]);
@@ -61,20 +64,23 @@ public class ArmControlScript : MonoBehaviour {
         {
             float pitchAcc = (float) (Math.Atan2(ax, az) * 180 / Math.PI);
             pitchAcc = (pitchAcc >= 0 ? pitchAcc : pitchAcc+360);
-            pitch = pitch * 0.998f -pitchAcc * 0.002f;
+            pitch = pitch * 0.998f - pitchAcc * 0.002f;
 
             // Turning around the Y axis results in a vector on the X-axis
             float rollAcc = (float) (Math.Atan2(ay, az) * 180 / Math.PI);
             rollAcc = (rollAcc >= 0 ? rollAcc : rollAcc + 360);
-            roll = roll * 0.998f -rollAcc * 0.002f;
+            roll = roll * 0.998f - rollAcc * 0.002f;
         }
         */
+        pitch %= 360;
+        yaw %= 360;
+        roll %= 360;
         Debug.Log("roll: " + roll + ", pitch: " + pitch + ", yaw: " + yaw);
-
-        transform.Rotate(-dPitch, -dYaw, dRoll, Space.World);
+        transform.eulerAngles = new Vector3(pitch, yaw, roll);// new Vector3(pitch, yaw, roll);
+        //transform.Rotate(-dPitch, -dYaw, dRoll, Space.World);
         lastRead = data;
 
-        GetComponent<Rigidbody>().AddForce(x, y, z);
+        //GetComponent<Rigidbody>().AddForce(x, y, z);
     }
 
     // Update is called once per frame
